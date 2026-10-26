@@ -100,29 +100,23 @@ def main():
     else:
         files = [args.input]
 
-    mmcv.mkdir_or_exist(args.out_dir)
-    dump = []
+    assert args.out_dir or args.labelme_dir, "specify --out-dir and/or --labelme-dir"
     prog_bar = mmcv.ProgressBar(len(files))
     for f in files:
-        result = inference_detector(model, f)
+        img = mmcv.imread(f)
+        height, width = img.shape[:2]
+        result = inference_detector(model, img)  # boxes are in original-image pixels
         rel = osp.relpath(f, args.input) if osp.isdir(args.input) else osp.basename(f)
-        model.show_result(
-            f, result, score_thr=args.score_thr, out_file=osp.join(args.out_dir, rel)
-        )
-        if args.out_json:
-            dets = []
-            for cls_id, bboxes in enumerate(result):
-                for x1, y1, x2, y2, score in bboxes.tolist():
-                    if score >= args.score_thr:
-                        dets.append(dict(
-                            label=model.CLASSES[cls_id], bbox=[x1, y1, x2, y2], score=score
-                        ))
-            dump.append(dict(file=rel, detections=dets))
+        if args.out_dir:
+            model.show_result(
+                img, result, score_thr=args.score_thr, out_file=osp.join(args.out_dir, rel)
+            )
+        if args.labelme_dir:
+            dump_labelme(
+                f, osp.join(args.labelme_dir, osp.dirname(rel)), result,
+                model.CLASSES, width, height, args.score_thr,
+            )
         prog_bar.update()
-
-    if args.out_json:
-        mmcv.dump(dump, args.out_json)
-        print(f"\nwrote {args.out_json}")
 
 
 if __name__ == "__main__":
