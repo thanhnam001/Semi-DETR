@@ -5,7 +5,9 @@ import os.path as osp
 
 import mmcv
 from mmcv import Config
-from mmdet.apis import inference_detector, init_detector
+from mmcv.runner import load_checkpoint
+from mmdet.apis import inference_detector
+from mmdet.models import build_detector
 
 from detr_ssod.utils import patch_config
 
@@ -35,8 +37,15 @@ def main():
     if "semi_wrapper" in cfg:
         cfg.semi_wrapper.test_cfg.inference_on = args.model
     cfg = patch_config(cfg)
+    # mmdet's init_detector injects `pretrained=None`, which DinoDetrSSOD rejects,
+    # so build the model the same way tools/test.py does
+    model = build_detector(cfg.model, test_cfg=cfg.get("test_cfg"))
+    checkpoint = load_checkpoint(model, args.checkpoint, map_location="cpu")
+    model.CLASSES = checkpoint.get("meta", {}).get("CLASSES") or cfg.get("classes")
+    model.cfg = cfg  # inference_detector reads the test pipeline from here
     # the head defaults to the one-to-one (post warm-up) branch when no curr_step is given
-    model = init_detector(cfg, args.checkpoint, device=args.device)
+    model.to(args.device)
+    model.eval()
 
     if osp.isdir(args.input):
         files = sorted(
