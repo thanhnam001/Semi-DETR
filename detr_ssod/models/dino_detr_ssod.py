@@ -284,7 +284,7 @@ class DinoDetrSSOD(MultiSteamDetector):
 
                 # get the positive samples' cost
                 pos_inds_gmm = matched_col_inds                         # pos_inds means the matcheding inital gt bbox index
-                pos_cost_gmm = cost[matched_row_inds, matched_col_inds] 
+                pos_cost_gmm = cost[matched_row_inds.cpu(), matched_col_inds.cpu()]
 
                 # save some useful info
                 match_gt_cost_list.append(pos_cost_gmm)
